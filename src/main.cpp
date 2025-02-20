@@ -3,12 +3,13 @@
 #include <PubSubClient.h>
 #include <SPI.h>
 #include <Adafruit_MCP2515.h>
-#include <ArduinoOTA.h>
+#include <esp_task_wdt.h>
 #include "secrets.h"
 
-#define CS_PIN    7
+#define CS_PIN    5  // Adjust the pin number according to your setup
 
 #define CAN_BAUDRATE (1000000)
+#define WDT_TIMEOUT 30
 
 Adafruit_MCP2515 mcp(CS_PIN);
 
@@ -77,6 +78,12 @@ void reconnect() {
 void setup() {
 //  pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
   Serial.begin(115200);
+
+  delay(5000);
+
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
+
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
@@ -88,13 +95,9 @@ void setup() {
     while(1) delay(10);
   }
   Serial.println("MCP2515 chip found");
-  // start the WiFi OTA library with internal (flash) based storage
-  ArduinoOTA.begin();
 }
 
 void loop() {
-  ArduinoOTA.handle();
-
   if (!client.connected()) {
     reconnect();
   }
@@ -128,4 +131,5 @@ void loop() {
     client.publish("battery_can/SOC", msg);
     sprintf(msg, "%s", "0");
   }
+  esp_task_wdt_reset();
 }
